@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimasi Rute Pengiriman</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .route-option {
+            background-color: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .route-option:hover {
+            background-color: #e0e0e0;
+            transform: translateX(5px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        #route-details {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: #888 #f1f1f1;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+        #route-details::-webkit-scrollbar {
+            width: 8px;
+        }
+        #route-details::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        #route-details::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .legend {
+            font-family: 'Roboto', sans-serif;
+            font-size: 12px;
+            line-height: 1.5;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #map {
+            height: 500px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #1e88e5, #1565c0);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+        }
+        #form-container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .input-field:focus {
+            border-color: #1e88e5;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(30,136,229,0.2);
+        }
+        .btn {
+            background-color: #1e88e5;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #1565c0;
+        }
+        #instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .route-type-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+            background-color: #e3f2fd;
+            color: #1e88e5;
+        }
+        .route-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .stat-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.7;
+        }
+        footer {
+            background: #f8f9fa;
+            padding: 20px 0;
+            margin-top: 40px;
+            text-align: center;
+            color: #666;
+        }
+
+.routes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.btn-secondary {
+    background-color: #757575;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.btn-secondary:hover {
+    background-color: #616161;
+}
+
+.route-option {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.route-option.active-route {
+    background-color: #e0e0e0;
+    transform: translateX(10px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.route-option::after {
+    content: "Klik untuk melihat rute ini";
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: #666;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.route-option:hover::after {
+    opacity: 1;
+}
+
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Pencarian Rute Optimal</h1>
+            <p>Menemukan beragam rute alternatif untuk pengiriman Anda - lebih banyak pilihan untuk fleksibilitas maksimal.</p>
+        </div>
+    </header>
+
+    <section id="instructions" class="container">
+        <h2>Petunjuk Penggunaan</h2>
+        <p>Masukkan nama lokasi awal dan tujuan. Sistem akan menampilkan hingga 8 rute alternatif yang tersedia.</p>
+        <p>Setiap rute memiliki karakteristik berbeda:</p>
+        <ul>
+            <li>Rute langsung - jalur tercepat antara dua titik</li>
+            <li>Rute alternatif - variasi rute dengan pertimbangan berbeda</li>
+            <li>Rute dengan waypoint - rute yang melalui titik-titik tambahan untuk variasi lebih banyak</li>
+        </ul>
+        <p>Contoh format input:</p>
+        <ul>
+            <li>Nama kota: "Jakarta", "Surabaya"</li>
+            <li>Alamat: "Jl. Malioboro, Yogyakarta"</li>
+            <li>Landmark: "Monas, Jakarta"</li>
+            <li>Tempat spesifik: "Bandara Soekarno-Hatta"</li>
+        </ul>
+    </section>
+
+    <main class="container">
+        <div id="form-container">
+            <label for="start-location">Lokasi Awal:</label>
+            <input type="text" id="start-location" class="input-field" placeholder="Masukkan lokasi awal" autocomplete="off">
+            
+            <label for="end-location">Lokasi Tujuan:</label>
+            <input type="text" id="end-location" class="input-field" placeholder="Masukkan lokasi tujuan" autocomplete="off">
+
+            <button id="submit-locations" class="btn">Hitung Rute</button>
+        </div>
+
+        <div id="map-container">
+            <div id="map"></div>
+            <div id="route-info">
+                <h2>Informasi Rute</h2>
+                <p id="locations">Dari: - <br>Ke: -</p>
+                <div id="route-details"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Optimasi Rute Pengiriman. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='js/map.js') }}"></script>
+</body>
+</html>
